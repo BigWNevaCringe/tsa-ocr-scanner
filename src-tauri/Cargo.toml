@@ -1,0 +1,19 @@
+[package]
+name = "watcher-dog-tsa"
+version = "0.1.0"
+description = "LH TSA scan watcher desktop app"
+authors = ["LH TSA"]
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+dirs = "6"
+mime_guess = "2"
+notify = "8"
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "multipart", "rustls-tls"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"

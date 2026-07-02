@@ -1,0 +1,51 @@
+# === Environment / secrets ===
+.env
+.env.*
+!.env.example
+
+# === Rust / Tauri ===
+/src-tauri/target/
+/src-tauri/Cargo.lock
+**/*.rs.bk
+*.pdb
+
+# Tauri build output
+/dist/
+/src-tauri/gen/
+
+# === Node / Bun / Frontend ===
+node_modules/
+bun.lockb
+.vite/
+.turbo/
+
+# Build output (frontend)
+dist/
+dist-ssr/
+*.local
+
+# === Python (nếu còn sót lại đâu đó) ===
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.venv/
+*.egg-info/
+
+# === Editor / OS ===
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+
+# === Logs ===
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# === Misc ===
+.dockerignore
+Dockerfile

@@ -1,0 +1,31 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "LH TSA Scan Watcher",
+  "version": "0.1.0",
+  "identifier": "vn.edu.lhu.tsa.scanwatcher",
+  "build": {
+    "beforeDevCommand": "bun dev",
+    "devUrl": "http://127.0.0.1:1420",
+    "beforeBuildCommand": "bun run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "LH TSA Scan Watcher",
+        "width": 960,
+        "height": 720,
+        "minWidth": 820,
+        "minHeight": 620
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": ["icons/icon.png"]
+  }
+}
