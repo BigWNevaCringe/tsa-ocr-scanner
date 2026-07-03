@@ -2,14 +2,13 @@ import React, { useEffect, useMemo, useState } from "react";
 import ReactDOM from "react-dom/client";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { disable, enable, isEnabled } from "@tauri-apps/plugin-autostart";
 import { open } from "@tauri-apps/plugin-dialog";
 import "./styles.css";
 
 type AppConfig = {
   watchFolder: string;
-  apiUrl: string;
-  scanKey: string;
-  keyName: string;
+  hasScanKey: boolean;
 };
 
 type WatcherLog = {
@@ -20,19 +19,21 @@ type WatcherLog = {
 
 const defaultConfig: AppConfig = {
   watchFolder: "",
-  apiUrl: "https://tsa-ocr.lhu.edu.vn/api/v1/scan-machines/profile-image",
-  scanKey: "",
-  keyName: "ocr",
+  hasScanKey: false,
 };
 
 function App() {
   const [config, setConfig] = useState<AppConfig>(defaultConfig);
+  const [activeTab, setActiveTab] = useState<"watcher" | "config">("watcher");
+  const [scanKey, setScanKey] = useState("");
+  const [password, setPassword] = useState("");
+  const [runOnStartup, setRunOnStartup] = useState(false);
   const [running, setRunning] = useState(false);
   const [saving, setSaving] = useState(false);
   const [logs, setLogs] = useState<WatcherLog[]>([]);
 
   const canStart = useMemo(() => {
-    return Boolean(config.watchFolder && config.apiUrl && config.scanKey && config.keyName);
+    return Boolean(config.watchFolder && config.hasScanKey);
   }, [config]);
 
   useEffect(() => {
@@ -43,6 +44,10 @@ function App() {
     invoke<boolean>("watcher_status")
       .then(setRunning)
       .catch(() => setRunning(false));
+
+    isEnabled()
+      .then(setRunOnStartup)
+      .catch(() => setRunOnStartup(false));
 
     const unlisten = listen<WatcherLog>("watcher-log", (event) => {
       setLogs((current) => [event.payload, ...current].slice(0, 120));
@@ -74,9 +79,28 @@ function App() {
   }
 
   async function saveConfig() {
+    if (!scanKey.trim()) {
+      pushLog("error", "Thiếu scan key");
+      return;
+    }
+
     setSaving(true);
     try {
-      await invoke("save_config", { config });
+      const saved = await invoke<AppConfig>("save_config", {
+        config: {
+          ...config,
+          scanKey: scanKey.trim(),
+          password: password.trim(),
+        },
+      });
+      if (runOnStartup) {
+        await enable();
+      } else {
+        await disable();
+      }
+      setConfig({ ...defaultConfig, ...saved });
+      setScanKey("");
+      setPassword("");
       pushLog("success", "Đã lưu cấu hình");
     } catch (error) {
       pushLog("error", String(error));
@@ -87,7 +111,8 @@ function App() {
 
   async function startWatcher() {
     try {
-      await invoke("start_watcher", { config });
+      await invoke("save_watch_folder", { watchFolder: config.watchFolder });
+      await invoke("start_watcher", { watchFolder: config.watchFolder });
       setRunning(true);
       pushLog("success", "Watcher đang chạy");
     } catch (error) {
@@ -116,52 +141,88 @@ function App() {
       </section>
 
       <section className="panel">
-        <div className="field">
-          <label>Thư mục output máy scan</label>
-          <div className="folder-row">
-            <input value={config.watchFolder} onChange={(event) => updateConfig("watchFolder", event.target.value)} />
-            <button type="button" onClick={chooseFolder}>
-              Chọn
-            </button>
-          </div>
-        </div>
-
-        <div className="field">
-          <label>API URL</label>
-          <input value={config.apiUrl} onChange={(event) => updateConfig("apiUrl", event.target.value)} />
-        </div>
-
-        <div className="grid">
-          <div className="field">
-            <label>Scan key</label>
-            <input
-              type="password"
-              value={config.scanKey}
-              onChange={(event) => updateConfig("scanKey", event.target.value)}
-              placeholder="skm_xxx"
-            />
-          </div>
-
-          <div className="field">
-            <label>Key name</label>
-            <input value={config.keyName} onChange={(event) => updateConfig("keyName", event.target.value)} />
-          </div>
-        </div>
-
-        <div className="actions">
-          <button type="button" className="secondary" onClick={saveConfig} disabled={saving}>
-            {saving ? "Đang lưu" : "Lưu cấu hình"}
+        <div className="tabs" role="tablist" aria-label="App sections">
+          <button
+            type="button"
+            className={activeTab === "watcher" ? "tab tab-active" : "tab"}
+            onClick={() => setActiveTab("watcher")}
+          >
+            Watcher
           </button>
-          {running ? (
-            <button type="button" className="danger" onClick={stopWatcher}>
-              Stop
-            </button>
-          ) : (
-            <button type="button" onClick={startWatcher} disabled={!canStart}>
-              Start watcher
-            </button>
-          )}
+          <button
+            type="button"
+            className={activeTab === "config" ? "tab tab-active" : "tab"}
+            onClick={() => setActiveTab("config")}
+          >
+            Config
+          </button>
         </div>
+
+        {activeTab === "watcher" ? (
+          <div className="tab-panel">
+            <div className="field">
+              <label>Thư mục output máy scan</label>
+              <div className="folder-row">
+                <input
+                  value={config.watchFolder}
+                  onChange={(event) => updateConfig("watchFolder", event.target.value)}
+                />
+                <button type="button" onClick={chooseFolder}>
+                  Chọn
+                </button>
+              </div>
+            </div>
+
+            <div className="actions">
+              {running ? (
+                <button type="button" className="danger" onClick={stopWatcher}>
+                  Stop
+                </button>
+              ) : (
+                <button type="button" onClick={startWatcher} disabled={!canStart}>
+                  Start watcher
+                </button>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="tab-panel">
+            <div className="field">
+              <label>Scan key</label>
+              <input
+                type="password"
+                value={scanKey}
+                onChange={(event) => setScanKey(event.target.value)}
+                placeholder={config.hasScanKey ? "Đã lưu trong Stronghold" : "Nhập scan key"}
+              />
+            </div>
+
+            <div className="field">
+              <label>Password lưu cấu hình</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                placeholder="Nhập password"
+              />
+            </div>
+
+            <label className="check-row">
+              <input
+                type="checkbox"
+                checked={runOnStartup}
+                onChange={(event) => setRunOnStartup(event.target.checked)}
+              />
+              <span>Run on startup</span>
+            </label>
+
+            <div className="actions">
+              <button type="button" className="secondary" onClick={saveConfig} disabled={saving || !password || !scanKey}>
+                {saving ? "Đang lưu" : "Lưu config"}
+              </button>
+            </div>
+          </div>
+        )}
       </section>
 
       <section className="panel log-panel">
