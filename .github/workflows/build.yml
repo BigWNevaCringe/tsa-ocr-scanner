@@ -54,6 +54,29 @@ jobs:
         with:
           args: ${{ matrix.args }}
 
+      - name: Normalize Windows installer name
+        if: startsWith(github.ref, 'refs/tags/') && matrix.platform == 'windows-latest'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist-release | Out-Null
+          $installer = Get-ChildItem -Path src-tauri/target/release/bundle -Recurse -Filter "*_x64-setup.exe" | Select-Object -First 1
+          if (-not $installer) {
+            throw "Windows setup installer not found"
+          }
+          Copy-Item $installer.FullName dist-release/LH-TSA-Scan-Watcher-x64-setup.exe
+
+      - name: Normalize Linux package name
+        if: startsWith(github.ref, 'refs/tags/') && matrix.platform == 'ubuntu-22.04'
+        shell: bash
+        run: |
+          mkdir -p dist-release
+          installer="$(find src-tauri/target/release/bundle -type f -name '*_amd64.deb' | head -n 1)"
+          if [ -z "$installer" ]; then
+            echo "Linux deb package not found" >&2
+            exit 1
+          fi
+          cp "$installer" dist-release/LH-TSA-Scan-Watcher-amd64.deb
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -67,8 +90,4 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            src-tauri/target/release/bundle/**/*.AppImage
-            src-tauri/target/release/bundle/**/*.deb
-            src-tauri/target/release/bundle/**/*.rpm
-            src-tauri/target/release/bundle/**/*.msi
-            src-tauri/target/release/bundle/**/*.exe
+            dist-release/*
