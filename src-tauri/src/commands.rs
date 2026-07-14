@@ -3,6 +3,7 @@ use crate::{
         load_folder_config, save_folder_config, FolderConfig, PublicConfig, SaveConfigRequest,
         CONFIG_PASSWORD,
     },
+    health,
     secrets::{
         default_secret_config, load_secret_config, save_secret_config_fresh, validate_app_config,
         validate_secret_config, AppConfig,
@@ -35,11 +36,16 @@ pub async fn save_config(config: SaveConfigRequest) -> Result<PublicConfig, Stri
         return Err("Sai password".into());
     }
 
-    let config_for_secret = config.clone();
+    let secrets = default_secret_config(config.scan_key.trim().to_string());
+    let secrets_for_health = secrets.clone();
+    tauri::async_runtime::spawn_blocking(move || health::check_api_key_health(&secrets_for_health))
+        .await
+        .map_err(|error| error.to_string())??;
+
+    let secrets_for_save = secrets.clone();
     tauri::async_runtime::spawn_blocking(move || {
-        let secrets = default_secret_config(config_for_secret.scan_key.trim().to_string());
-        validate_secret_config(&secrets)?;
-        save_secret_config_fresh(CONFIG_PASSWORD, &secrets)
+        validate_secret_config(&secrets_for_save)?;
+        save_secret_config_fresh(CONFIG_PASSWORD, &secrets_for_save)
     })
     .await
     .map_err(|error| error.to_string())??;
@@ -53,6 +59,17 @@ pub async fn save_config(config: SaveConfigRequest) -> Result<PublicConfig, Stri
         watch_folder: config.watch_folder,
         has_scan_key: true,
     })
+}
+
+#[tauri::command]
+pub async fn check_api_key_health() -> Result<(), String> {
+    let secrets = tauri::async_runtime::spawn_blocking(move || load_secret_config(CONFIG_PASSWORD))
+        .await
+        .map_err(|error| error.to_string())??;
+
+    tauri::async_runtime::spawn_blocking(move || health::check_api_key_health(&secrets))
+        .await
+        .map_err(|error| error.to_string())?
 }
 
 #[tauri::command]
@@ -70,6 +87,11 @@ pub async fn start_watcher(
     let secrets = tauri::async_runtime::spawn_blocking(move || load_secret_config(CONFIG_PASSWORD))
         .await
         .map_err(|error| error.to_string())??;
+    let secrets_for_health = secrets.clone();
+    tauri::async_runtime::spawn_blocking(move || health::check_api_key_health(&secrets_for_health))
+        .await
+        .map_err(|error| error.to_string())??;
+
     let config = AppConfig {
         watch_folder,
         api_url: secrets.api_url,
@@ -94,6 +116,11 @@ pub async fn auto_start_watcher(app: tauri::AppHandle) -> Result<(), String> {
     let secrets = tauri::async_runtime::spawn_blocking(move || load_secret_config(CONFIG_PASSWORD))
         .await
         .map_err(|error| error.to_string())??;
+    let secrets_for_health = secrets.clone();
+    tauri::async_runtime::spawn_blocking(move || health::check_api_key_health(&secrets_for_health))
+        .await
+        .map_err(|error| error.to_string())??;
+
     let config = AppConfig {
         watch_folder: folder.watch_folder,
         api_url: secrets.api_url,

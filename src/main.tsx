@@ -38,7 +38,16 @@ function App() {
 
   useEffect(() => {
     invoke<AppConfig>("load_config")
-      .then((saved) => setConfig({ ...defaultConfig, ...saved }))
+      .then((saved) => {
+        const nextConfig = { ...defaultConfig, ...saved };
+        setConfig(nextConfig);
+
+        if (nextConfig.hasScanKey) {
+          invoke("check_api_key_health")
+            .then(() => pushLog("success", "Scan key đang hoạt động"))
+            .catch((error) => pushLog("error", String(error)));
+        }
+      })
       .catch((error) => pushLog("error", String(error)));
 
     invoke<boolean>("watcher_status")

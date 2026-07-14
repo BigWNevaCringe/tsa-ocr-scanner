@@ -2,6 +2,7 @@
 
 mod commands;
 mod config;
+mod health;
 mod logging;
 mod secrets;
 mod watcher;
@@ -27,6 +28,7 @@ fn main() {
             commands::load_config,
             commands::save_config,
             commands::save_watch_folder,
+            commands::check_api_key_health,
             commands::watcher_status,
             commands::start_watcher,
             commands::stop_watcher

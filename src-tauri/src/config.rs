@@ -3,6 +3,7 @@ use std::{fs, path::PathBuf};
 use serde::{Deserialize, Serialize};
 
 pub const DEFAULT_API_URL: &str = "https://tsa-ocr.lhu.edu.vn/api/v1/scan-machines/profile-image";
+pub const DEFAULT_HEALTH_URL: &str = "https://tsa-ocr.lhu.edu.vn/api/v1/scan-machines/health";
 pub const DEFAULT_KEY_NAME: &str = "ocr";
 pub const CONFIG_PASSWORD: &str = "1233979";
 
